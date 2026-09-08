@@ -1,7 +1,4 @@
 // lib/services/product_service.dart
-//
-// Calls product-related API endpoints and returns typed Dart objects.
-// The provider layer calls this service and notifies the UI of changes.
 
 import '../models/product_model.dart';
 import 'api_service.dart';
@@ -33,5 +30,55 @@ class ProductService {
   static Future<List<Product>> searchProducts(String query) async {
     final data = await ApiService.get('/products/search', params: {'q': query});
     return (data as List).map((p) => Product.fromJson(p)).toList();
+  }
+
+  /// Get "Complete The Look" bundle recommendation items.
+  static Future<List<Product>> getCompleteTheLook(String productId) async {
+    try {
+      final data = await ApiService.get('/products/$productId/complete-the-look');
+      if (data is List && data.isNotEmpty) {
+        return data.map((p) => Product.fromJson(p)).toList();
+      }
+    } catch (_) {}
+
+    // Fallback: return complementary products from catalog
+    final all = await getProducts(limit: 10);
+    return all.where((p) => p.id != productId).take(3).toList();
+  }
+
+  /// Get smart recommendations (You May Also Like).
+  static Future<List<Product>> getRecommendations(String productId) async {
+    try {
+      final data = await ApiService.get('/products/$productId/recommendations');
+      if (data is List && data.isNotEmpty) {
+        return data.map((p) => Product.fromJson(p)).toList();
+      }
+    } catch (_) {}
+
+    // Fallback: return catalog products
+    final all = await getProducts(limit: 10);
+    return all.where((p) => p.id != productId).take(4).toList();
+  }
+
+  /// Request back in stock or price drop notification.
+  static Future<dynamic> requestNotification(
+    String productId,
+    String email,
+    String notifyType,
+  ) async {
+    return await ApiService.post('/products/$productId/notify', {
+      'email': email,
+      'notify_type': notifyType,
+    });
+  }
+
+  /// Get approved community styled fashion photos.
+  static Future<List<dynamic>> getCommunityGallery() async {
+    return await ApiService.get('/products/community/gallery');
+  }
+
+  /// Submit customer styled photo for approval.
+  static Future<dynamic> submitCommunityPhoto(Map<String, dynamic> body) async {
+    return await ApiService.post('/products/community/gallery', body);
   }
 }

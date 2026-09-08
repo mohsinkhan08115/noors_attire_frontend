@@ -10,13 +10,19 @@ import 'package:frontend/screens/product/product_detail.dart';
 import 'package:frontend/screens/product/product_list.dart';
 import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
+import 'core/animation/ambient_background.dart';
 import 'providers/cart_provider.dart';
 import 'providers/product_provider.dart';
+import 'providers/wishlist_provider.dart';
+import 'providers/homepage_provider.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/cart/cart_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
 import 'screens/profile/profile_screen.dart';
+import 'screens/wishlist/wishlist_screen.dart';
+import 'screens/builder/outfit_builder_screen.dart';
+import 'screens/lookbook/lookbook_screen.dart';
 
 void main() {
   runApp(const NoofsAttireApp());
@@ -33,11 +39,18 @@ class NoofsAttireApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
+        ChangeNotifierProvider(create: (_) => WishlistProvider()),
+        ChangeNotifierProvider(create: (_) => HomepageProvider()),
       ],
       child: MaterialApp(
         title: "Noor's Attire",
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
+        builder: (context, child) {
+          return LuxuryAnimatedBackground(
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
 
         // ── Named Routes ──────────────────────────────────────────────────
         // Use Navigator.pushNamed(context, '/cart') to navigate
@@ -49,6 +62,9 @@ class NoofsAttireApp extends StatelessWidget {
           '/login': (context) => const LoginScreen(),
           '/signup': (context) => const SignupScreen(),
           '/profile': (context) => const ProfileScreen(),
+          '/wishlist': (context) => const WishlistScreen(),
+          '/builder': (context) => const OutfitBuilderScreen(),
+          '/lookbook': (context) => const LookbookScreen(),
         },
 
         // For routes that need parameters (e.g. product ID):

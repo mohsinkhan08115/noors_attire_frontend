@@ -1,12 +1,15 @@
 // lib/screens/profile/profile_screen.dart
 
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/animation/animation_utils.dart';
 import '../../models/user_model.dart';
 import '../../models/order_model.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
+import '../../providers/wishlist_provider.dart';
+import '../../widgets/empty_state.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -55,11 +58,12 @@ class _ProfileScreenState extends State<ProfileScreen>
   Future<void> _loadUser() async {
     try {
       final user = await AuthService.getCurrentUser();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _user = user;
           _loadingUser = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingUser = false);
     }
@@ -69,11 +73,12 @@ class _ProfileScreenState extends State<ProfileScreen>
     try {
       final data = await ApiService.get('/orders/');
       final orders = (data as List).map((o) => OrderModel.fromJson(o)).toList();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _orders = orders;
           _loadingOrders = false;
         });
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingOrders = false);
     }
@@ -88,7 +93,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           'Log Out',
           style: TextStyle(fontFamily: 'Playfair', fontWeight: FontWeight.bold),
         ),
-        content: const Text('Are you sure you want to log out?'),
+        content: const Text('Are you sure you want to log out of your account?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -105,16 +110,25 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     if (confirmed == true) {
       await AuthService.logout();
-      if (mounted) Navigator.pushReplacementNamed(context, '/');
+      if (mounted) {
+        context.read<WishlistProvider>().reset();
+        Navigator.pushReplacementNamed(context, '/');
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('My Account'),
+        title: const Text(
+          'My Account',
+          style: TextStyle(
+            fontFamily: 'Playfair',
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         actions: [
           if (_isLoggedIn)
             IconButton(
@@ -130,62 +144,12 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   // ── Not logged in ─────────────────────────────────────────────────────────
   Widget _loggedOutBody() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withOpacity(0.08),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.person_outline_rounded,
-                size: 64,
-                color: AppTheme.primary,
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              "You're not logged in",
-              style: TextStyle(
-                fontFamily: 'Playfair',
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Sign in to view your profile and order history',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppTheme.textGrey, height: 1.5),
-            ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, '/login'),
-              child: const Text('SIGN IN'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: () => Navigator.pushNamed(context, '/signup'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 52),
-                side: const BorderSide(color: AppTheme.primary),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text(
-                'CREATE ACCOUNT',
-                style: TextStyle(color: AppTheme.primary),
-              ),
-            ),
-          ],
-        ),
-      ),
+    return CustomEmptyState(
+      icon: Icons.person_outline_rounded,
+      title: "Welcome to Noor's Attire",
+      description: "Sign in to access your saved wishlist items, track orders, and manage account details.",
+      buttonText: "SIGN IN TO ACCOUNT",
+      onButtonPressed: () => Navigator.pushNamed(context, '/login'),
     );
   }
 
@@ -193,10 +157,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   Widget _loggedInBody() {
     return Column(
       children: [
-        // Profile header card
         _profileHeader(),
-
-        // Tabs
         Container(
           color: Colors.white,
           child: TabBar(
@@ -205,14 +166,13 @@ class _ProfileScreenState extends State<ProfileScreen>
             unselectedLabelColor: AppTheme.textGrey,
             indicatorColor: AppTheme.primary,
             indicatorWeight: 3,
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             tabs: const [
-              Tab(text: 'My Info'),
+              Tab(text: 'My Profile'),
               Tab(text: 'Order History'),
             ],
           ),
         ),
-
-        // Tab content
         Expanded(
           child: TabBarView(
             controller: _tabController,
@@ -227,29 +187,34 @@ class _ProfileScreenState extends State<ProfileScreen>
   Widget _profileHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF5C0A0A), Color(0xFF8B1A1A)],
+          colors: [Color(0xFF3B0606), Color(0xFF8B1A1A)],
         ),
       ),
       child: _loadingUser
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
           : Row(
               children: [
-                // Avatar circle with initials
                 Container(
                   width: 72,
                   height: 72,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD4A017),
+                    color: AppTheme.accent,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withOpacity(0.4),
                       width: 3,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 8,
+                      ),
+                    ],
                   ),
                   child: Center(
                     child: Text(
@@ -257,23 +222,23 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ? _user!.name[0].toUpperCase()
                           : '?',
                       style: const TextStyle(
-                        fontSize: 30,
+                        fontSize: 32,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: AppTheme.textDark,
                         fontFamily: 'Playfair',
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 18),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _user?.name ?? 'Loading...',
+                        _user?.name ?? 'Customer',
                         style: const TextStyle(
-                          fontSize: 20,
+                          fontSize: 22,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                           fontFamily: 'Playfair',
@@ -284,19 +249,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                         _user?.email ?? '',
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.white.withOpacity(0.75),
+                          color: Colors.white.withOpacity(0.8),
                         ),
                       ),
-                      if (_user?.phone != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          _user!.phone!,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.white.withOpacity(0.6),
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
@@ -308,104 +263,87 @@ class _ProfileScreenState extends State<ProfileScreen>
   // ── Info Tab ──────────────────────────────────────────────────────────────
   Widget _infoTab() {
     if (_loadingUser) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppTheme.primary),
-      );
+      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
     }
 
     if (_user == null) {
-      return const Center(
-        child: Text(
-          'Could not load profile',
-          style: TextStyle(color: AppTheme.textGrey),
-        ),
-      );
+      return const Center(child: Text('Could not load profile details'));
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Account Details',
-            style: TextStyle(
-              fontFamily: 'Playfair',
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Info fields
-          _infoCard([
-            _infoRow(Icons.person_outline, 'Full Name', _user!.name),
-            _dividerLine(),
-            _infoRow(Icons.email_outlined, 'Email', _user!.email),
-            if (_user!.phone != null) ...[
-              _dividerLine(),
-              _infoRow(Icons.phone_outlined, 'Phone', _user!.phone!),
-            ],
-            if (_user!.createdAt != null) ...[
-              _dividerLine(),
-              _infoRow(
-                Icons.calendar_today_outlined,
-                'Member Since',
-                _formatDate(_user!.createdAt!),
+      padding: const EdgeInsets.all(24),
+      child: FadeInSlide(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Account Information',
+              style: TextStyle(
+                fontFamily: 'Playfair',
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textDark,
               ),
-            ],
-          ]),
-
-          const SizedBox(height: 24),
-          const Text(
-            'Quick Actions',
-            style: TextStyle(
-              fontFamily: 'Playfair',
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
-          _actionTile(
-            Icons.shopping_bag_outlined,
-            'My Orders',
-            'View your order history',
-            onTap: () => _tabController.animateTo(1),
-          ),
-          const SizedBox(height: 10),
-          _actionTile(
-            Icons.store_outlined,
-            'Browse Products',
-            'Explore our collection',
-            onTap: () => Navigator.pushNamed(context, '/products'),
-          ),
-          const SizedBox(height: 10),
-          _actionTile(
-            Icons.shopping_cart_outlined,
-            'My Cart',
-            'View items in your cart',
-            onTap: () => Navigator.pushNamed(context, '/cart'),
-          ),
-          const SizedBox(height: 10),
-          _actionTile(
-            Icons.logout_rounded,
-            'Log Out',
-            'Sign out of your account',
-            color: AppTheme.error,
-            onTap: _logout,
-          ),
-        ],
+            _infoCard([
+              _infoRow(Icons.person_outline_rounded, 'Full Name', _user!.name),
+              _dividerLine(),
+              _infoRow(Icons.email_outlined, 'Email Address', _user!.email),
+              if (_user!.phone != null) ...[
+                _dividerLine(),
+                _infoRow(Icons.phone_outlined, 'Phone Number', _user!.phone!),
+              ],
+            ]),
+
+            const SizedBox(height: 28),
+            const Text(
+              'Quick Actions',
+              style: TextStyle(
+                fontFamily: 'Playfair',
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textDark,
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            _actionTile(
+              Icons.shopping_bag_outlined,
+              'My Orders',
+              'Track active and past purchases',
+              onTap: () => _tabController.animateTo(1),
+            ),
+            const SizedBox(height: 10),
+            _actionTile(
+              Icons.favorite_border_rounded,
+              'Saved Wishlist',
+              'View your saved dresses & shirts',
+              onTap: () => Navigator.pushNamed(context, '/wishlist'),
+            ),
+            const SizedBox(height: 10),
+            _actionTile(
+              Icons.logout_rounded,
+              'Sign Out',
+              'Log out of this device',
+              color: AppTheme.error,
+              onTap: _logout,
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _infoCard(List<Widget> children) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(children: children),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border.withOpacity(0.6)),
       ),
+      child: Column(children: children),
     );
   }
 
@@ -422,17 +360,15 @@ class _ProfileScreenState extends State<ProfileScreen>
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppTheme.textGrey,
-                  ),
+                  style: const TextStyle(fontSize: 11, color: AppTheme.textGrey),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
                   style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textDark,
                   ),
                 ),
               ],
@@ -453,19 +389,14 @@ class _ProfileScreenState extends State<ProfileScreen>
     Color? color,
   }) {
     final c = color ?? AppTheme.primary;
-    return GestureDetector(
+    return ScaleHoverCard(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: color != null ? c.withOpacity(0.3) : AppTheme.border,
-          ),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4),
-          ],
+          border: Border.all(color: c.withOpacity(0.2)),
         ),
         child: Row(
           children: [
@@ -484,23 +415,16 @@ class _ProfileScreenState extends State<ProfileScreen>
                 children: [
                   Text(
                     title,
-                    style: TextStyle(fontWeight: FontWeight.w600, color: c),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: c, fontSize: 14),
                   ),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.textGrey,
-                    ),
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textGrey),
                   ),
                 ],
               ),
             ),
-            Icon(
-              Icons.arrow_forward_ios_rounded,
-              size: 14,
-              color: c.withOpacity(0.5),
-            ),
+            Icon(Icons.chevron_right_rounded, size: 20, color: c.withOpacity(0.6)),
           ],
         ),
       ),
@@ -510,52 +434,16 @@ class _ProfileScreenState extends State<ProfileScreen>
   // ── Orders Tab ────────────────────────────────────────────────────────────
   Widget _ordersTab() {
     if (_loadingOrders) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppTheme.primary),
-      );
+      return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
     }
 
     if (_orders.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withOpacity(0.06),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.shopping_bag_outlined,
-                  size: 52,
-                  color: AppTheme.primary,
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'No orders yet',
-                style: TextStyle(
-                  fontFamily: 'Playfair',
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Your order history will appear here',
-                style: TextStyle(color: AppTheme.textGrey),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => Navigator.pushNamed(context, '/products'),
-                child: const Text('START SHOPPING'),
-              ),
-            ],
-          ),
-        ),
+      return CustomEmptyState(
+        icon: Icons.shopping_bag_outlined,
+        title: 'No Orders Yet',
+        description: 'When you place an order, its progress and history will be tracked here.',
+        buttonText: 'START SHOPPING',
+        onButtonPressed: () => Navigator.pushNamed(context, '/products'),
       );
     }
 
@@ -563,10 +451,13 @@ class _ProfileScreenState extends State<ProfileScreen>
       onRefresh: _loadOrders,
       color: AppTheme.primary,
       child: ListView.separated(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         itemCount: _orders.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) => _orderCard(_orders[index]),
+        separatorBuilder: (_, __) => const SizedBox(height: 14),
+        itemBuilder: (context, index) => FadeInSlide(
+          delay: Duration(milliseconds: 50 * index),
+          child: _orderCard(_orders[index]),
+        ),
       ),
     );
   }
@@ -574,13 +465,17 @@ class _ProfileScreenState extends State<ProfileScreen>
   Widget _orderCard(OrderModel order) {
     final statusColor = _statusColor(order.status);
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border.withOpacity(0.6)),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header row
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -588,109 +483,72 @@ class _ProfileScreenState extends State<ProfileScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Order #${order.id.substring(0, 8).toUpperCase()}',
+                      'ORDER #${order.id.substring(0, order.id.length > 8 ? 8 : order.id.length).toUpperCase()}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
+                        letterSpacing: 0.5,
                       ),
                     ),
                     if (order.createdAt != null)
                       Text(
                         _formatDate(order.createdAt!),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.textGrey,
-                        ),
+                        style: const TextStyle(fontSize: 11, color: AppTheme.textGrey),
                       ),
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: statusColor.withOpacity(0.3)),
                   ),
                   child: Text(
                     order.statusDisplay,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: statusColor,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ],
             ),
-
-            const Divider(height: 20),
-
-            // Items list
+            const Divider(height: 24),
             ...order.items.map(
               (item) => Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.fiber_manual_record,
-                      size: 8,
-                      color: AppTheme.accent,
-                    ),
-                    const SizedBox(width: 10),
+                    const Icon(Icons.check_circle_outline_rounded, size: 14, color: AppTheme.accent),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         '${item.productName} × ${item.quantity}'
                         '${item.size != null ? ' (${item.size})' : ''}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppTheme.textGrey,
-                        ),
+                        style: const TextStyle(fontSize: 13, color: AppTheme.textDark),
                       ),
                     ),
                     Text(
                       'PKR ${item.subtotal.toStringAsFixed(0)}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
               ),
             ),
-
-            const Divider(height: 20),
-
-            // Total
+            const Divider(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.payment_outlined,
-                      size: 16,
-                      color: AppTheme.textGrey,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      order.paymentMethod == 'cash_on_delivery'
-                          ? 'Cash on Delivery'
-                          : order.paymentMethod,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textGrey,
-                      ),
-                    ),
-                  ],
+                const Text(
+                  'Cash on Delivery',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textGrey),
                 ),
                 Text(
                   order.formattedTotal,
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 17,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primary,
                   ),
@@ -706,35 +564,21 @@ class _ProfileScreenState extends State<ProfileScreen>
   Color _statusColor(String status) {
     switch (status) {
       case 'confirmed':
+      case 'delivered':
         return AppTheme.success;
       case 'shipped':
         return Colors.blue;
-      case 'delivered':
-        return AppTheme.success;
       case 'cancelled':
         return AppTheme.error;
       default:
-        return AppTheme.accent; // pending
+        return AppTheme.accent;
     }
   }
 
   String _formatDate(String isoDate) {
     try {
       final dt = DateTime.parse(isoDate);
-      final months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec',
-      ];
+      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
     } catch (_) {
       return isoDate;

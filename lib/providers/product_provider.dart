@@ -19,6 +19,7 @@ class ProductProvider extends ChangeNotifier {
   // ── Getters ───────────────────────────────────────────────────────────────
   bool get isLoading => _isLoading;
   String? get error => _error;
+  List<Product> get products => _allProducts;
   List<Product> get featured => _featured;
   List<Product> get bestsellers => _bestsellers;
   List<Product> get searchResults => _searchResults;

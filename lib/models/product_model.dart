@@ -9,6 +9,8 @@ class Product {
   final String name;
   final String description;
   final double price;
+  final double? salePrice;
+  final String? sku;
   final String category;
   final List<String> sizes;
   final List<String> colors;
@@ -24,6 +26,8 @@ class Product {
     required this.name,
     required this.description,
     required this.price,
+    this.salePrice,
+    this.sku,
     required this.category,
     required this.sizes,
     required this.colors,
@@ -43,6 +47,10 @@ class Product {
       name: json['name'] ?? '',
       description: json['description'] ?? '',
       price: (json['price'] ?? 0).toDouble(),
+      salePrice: json['sale_price'] != null
+          ? (json['sale_price'] as num).toDouble()
+          : null,
+      sku: json['sku'],
       category: json['category'] ?? '',
       sizes: List<String>.from(json['sizes'] ?? []),
       colors: List<String>.from(json['colors'] ?? []),
@@ -63,8 +71,21 @@ class Product {
   /// Whether the product is in stock
   bool get inStock => stock > 0;
 
-  /// Formatted price string
+  /// Formatted price string (original/list price)
   String get formattedPrice => 'PKR ${price.toStringAsFixed(0)}';
+
+  /// Whether the product currently has an active discount
+  bool get isOnSale => salePrice != null && salePrice! < price;
+
+  /// The price to actually charge/display prominently
+  double get effectivePrice => isOnSale ? salePrice! : price;
+
+  /// Formatted current price (sale price when on sale, else list price)
+  String get formattedEffectivePrice => 'PKR ${effectivePrice.toStringAsFixed(0)}';
+
+  /// Discount percentage, rounded, or 0 when not on sale
+  int get discountPercent =>
+      isOnSale ? (((price - salePrice!) / price) * 100).round() : 0;
 
   /// Category display name
   String get categoryDisplayName {

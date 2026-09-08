@@ -8,16 +8,18 @@
 //   - Dark charcoal (text)
 
 import 'package:flutter/material.dart';
+import '../animation/animation_utils.dart';
 
 class AppTheme {
   // ── Brand Colors ──────────────────────────────────────────────────────────
-  static const Color primary = Color(0xFF8B1A1A); // Deep burgundy red
-  static const Color accent = Color(0xFFD4A017); // Saffron gold
-  static const Color background = Color(0xFFFAF8F3); // Warm ivory
+  static const Color primary = Color(0xFF8B0000); // Deep burgundy/crimson red
+  static const Color accent = Color(0xFFC9A227); // Royal saffron gold
+  static const Color background = Color(0xFFFAF7F2); // Warm ivory background
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color textDark = Color(0xFF1C1C1C);
-  static const Color textGrey = Color(0xFF757575);
-  static const Color border = Color(0xFFE0D9CC);
+  static const Color surfaceDark = Color(0xFF1A0A08); // Rich dark charcoal
+  static const Color textDark = Color(0xFF1A0A08);
+  static const Color textGrey = Color(0xFF6B6560);
+  static const Color border = Color(0xFFE5DEC9);
   static const Color error = Color(0xFFB00020);
   static const Color success = Color(0xFF2E7D32);
 
@@ -29,11 +31,21 @@ class AppTheme {
         seedColor: primary,
         primary: primary,
         secondary: accent,
-        background: background,
         surface: surface,
         error: error,
       ),
-      scaffoldBackgroundColor: background,
+      scaffoldBackgroundColor: Colors.transparent,
+      splashFactory: InkRipple.splashFactory,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: FadeSlidePageTransitionsBuilder(),
+          TargetPlatform.iOS: FadeSlidePageTransitionsBuilder(),
+          TargetPlatform.linux: FadeSlidePageTransitionsBuilder(),
+          TargetPlatform.macOS: FadeSlidePageTransitionsBuilder(),
+          TargetPlatform.windows: FadeSlidePageTransitionsBuilder(),
+          TargetPlatform.fuchsia: FadeSlidePageTransitionsBuilder(),
+        },
+      ),
 
       // ── Typography ────────────────────────────────────────────────────────
       fontFamily: 'Georgia', // Elegant serif for body text
@@ -112,10 +124,32 @@ class AppTheme {
         ),
       ),
 
+      // ── Outlined / Text Buttons ──────────────────────────────────────────
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: primary,
+          side: const BorderSide(color: primary),
+          minimumSize: const Size(double.infinity, 52),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.2,
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: primary,
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+      ),
+
       // ── Input Fields ──────────────────────────────────────────────────────
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surface,
+        hintStyle: const TextStyle(color: textGrey, fontSize: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: border),
@@ -127,6 +161,10 @@ class AppTheme {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: primary, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: error),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -140,7 +178,42 @@ class AppTheme {
         color: surface,
         elevation: 2,
         shadowColor: Colors.black12,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+
+      // ── Misc surfaces ─────────────────────────────────────────────────────
+      dividerTheme: const DividerThemeData(
+        color: border,
+        thickness: 1,
+        space: 1,
+      ),
+      iconTheme: const IconThemeData(color: textDark),
+      tabBarTheme: const TabBarThemeData(
+        labelColor: primary,
+        unselectedLabelColor: textGrey,
+        indicatorColor: primary,
+        labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        titleTextStyle: const TextStyle(
+          fontFamily: 'Playfair',
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: textDark,
+        ),
+        contentTextStyle: const TextStyle(fontSize: 14, color: textGrey),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: textDark,
+        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
+        actionTextColor: accent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }

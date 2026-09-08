@@ -106,4 +106,9 @@ class ApiService {
     final token = await _getToken();
     return token != null;
   }
+
+  /// Subscribe email to newsletter
+  static Future<dynamic> subscribeNewsletter(String email) async {
+    return await post('/users/subscribe', {'email': email});
+  }
 }

@@ -116,7 +116,10 @@ class CartProvider extends ChangeNotifier {
       if (giftInfo != null) 'gift_info': giftInfo,
     };
 
-    final response = await ApiService.post('/orders/', orderData);
+    // postAuth() guarantees the Bearer token is attached.
+    // It throws immediately if the user is not logged in — the cart screen
+    // catches this and redirects to login before ever reaching here.
+    final response = await ApiService.postAuth('/orders/', orderData);
     final order = OrderModel.fromJson(response);
 
     clear();

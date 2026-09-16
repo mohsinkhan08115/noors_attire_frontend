@@ -255,7 +255,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
               onTap: () => Navigator.pushNamed(
                 context,
                 '/product',
-                arguments: product.id,
+                arguments: product,
               ),
             ),
           );

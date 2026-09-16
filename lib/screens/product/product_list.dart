@@ -1,7 +1,6 @@
-// lib/screens/product/product_list.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:carousel_slider/carousel_slider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/animation/animation_utils.dart';
@@ -30,6 +29,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
         context.read<ProductProvider>().setCategory(args);
       }
       context.read<ProductProvider>().loadProducts();
+      context.read<ProductProvider>().loadFeatured();
     });
   }
 
@@ -42,7 +42,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<ProductProvider>();
-    final isDesktop = MediaQuery.of(context).size.width > 900;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final int crossAxisCount = screenWidth > 1024 ? 4 : (screenWidth > 600 ? 3 : 2);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -100,6 +101,16 @@ class _ProductListScreenState extends State<ProductListScreen> {
                       label: 'Paint Shirts',
                       category: AppConstants.categoryPaintShirt,
                     ),
+                    for (final cat in provider.allCategories.where((c) =>
+                        c != 'all' &&
+                        c != AppConstants.categoryPashtunDress &&
+                        c != AppConstants.categoryPaintShirt)) ...[
+                      const SizedBox(width: 8),
+                      _FilterChip(
+                        label: ProductProvider.formatCategoryTitle(cat),
+                        category: cat,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -108,15 +119,15 @@ class _ProductListScreenState extends State<ProductListScreen> {
           ),
         ),
       ),
-      body: _buildProductGrid(provider, isDesktop),
+      body: _buildBody(provider, crossAxisCount),
     );
   }
 
-  Widget _buildProductGrid(ProductProvider provider, bool isDesktop) {
+  Widget _buildBody(ProductProvider provider, int crossAxisCount) {
     if (provider.isLoading) {
       return ProductGridSkeleton(
-        count: isDesktop ? 8 : 6,
-        crossAxisCount: isDesktop ? 4 : 2,
+        count: crossAxisCount * 3,
+        crossAxisCount: crossAxisCount,
       );
     }
 
@@ -148,26 +159,85 @@ class _ProductListScreenState extends State<ProductListScreen> {
       );
     }
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: isDesktop ? 4 : 2,
-        childAspectRatio: 0.65,
-        crossAxisSpacing: 14,
-        mainAxisSpacing: 14,
-      ),
-      itemCount: products.length,
-      itemBuilder: (context, index) => FadeInSlide(
-        delay: Duration(milliseconds: 50 * (index % 6)),
-        child: ProductCard(
-          product: products[index],
-          onTap: () => Navigator.pushNamed(
-            context,
-            '/product',
-            arguments: products[index].id,
+    return CustomScrollView(
+      slivers: [
+        if (provider.featured.isNotEmpty && _searchCtrl.text.isEmpty)
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 24, 16, 16),
+                  child: Text(
+                    "Featured Collection",
+                    style: TextStyle(
+                      fontFamily: 'Playfair',
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                CarouselSlider(
+                  options: CarouselOptions(
+                    height: 340,
+                    enlargeCenterPage: true,
+                    autoPlay: true,
+                    autoPlayInterval: const Duration(seconds: 5),
+                    viewportFraction: MediaQuery.of(context).size.width > 600 ? 0.4 : 0.75,
+                  ),
+                  items: provider.featured
+                      .map(
+                        (product) => ProductCard(
+                          product: product,
+                          onTap: () => Navigator.pushNamed(
+                            context,
+                            '/product',
+                            arguments: product,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 32, 16, 16),
+                  child: Text(
+                    "All Products",
+                    style: TextStyle(
+                      fontFamily: 'Playfair',
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        SliverPadding(
+          padding: const EdgeInsets.all(16),
+          sliver: SliverGrid(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              childAspectRatio: 0.65,
+              crossAxisSpacing: 14,
+              mainAxisSpacing: 14,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) => FadeInSlide(
+                delay: Duration(milliseconds: 50 * (index % 6)),
+                child: ProductCard(
+                  product: products[index],
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    '/product',
+                    arguments: products[index],
+                  ),
+                ),
+              ),
+              childCount: products.length,
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

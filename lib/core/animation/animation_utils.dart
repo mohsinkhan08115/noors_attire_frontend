@@ -121,13 +121,41 @@ class ScaleHoverCard extends StatefulWidget {
 class _ScaleHoverCardState extends State<ScaleHoverCard> {
   bool _isHovered = false;
 
+  // ── Single-callback hover guard ───────────────────────────────────────────
+  // Problem: calling setState() synchronously inside MouseRegion.onEnter /
+  // onExit re-enters Flutter's MouseTracker._deviceUpdatePhase() before the
+  // previous call completes, triggering the assert(!_debugDuringDeviceUpdate)
+  // at mouse_tracker.dart:199 — especially during page transitions.
+  //
+  // Fix: defer setState to the next frame via addPostFrameCallback.
+  //
+  // Additional guard: _callbackScheduled ensures we only queue ONE callback at
+  // a time, no matter how many onEnter/onExit events fire in rapid succession
+  // (e.g. mouse moving across many cards). Without the guard, each mouse-move
+  // event queues a new deferred setState, creating a rebuild → hover-event →
+  // rebuild cascade that keeps the assertion firing indefinitely.
+  bool _pendingHovered = false;
+  bool _callbackScheduled = false;
+
+  void _setHovered(bool value) {
+    _pendingHovered = value;
+    if (_callbackScheduled) return; // one callback already queued — bail out
+    _callbackScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _callbackScheduled = false;
+      if (mounted && _isHovered != _pendingHovered) {
+        setState(() => _isHovered = _pendingHovered);
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final disableAnimations = MediaQuery.of(context).disableAnimations;
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      onEnter: (_) => _setHovered(true),
+      onExit: (_) => _setHovered(false),
       cursor: widget.onTap != null
           ? SystemMouseCursors.click
           : SystemMouseCursors.basic,
@@ -312,6 +340,8 @@ class _MarqueeTickerState extends State<MarqueeTicker>
                   alignment: Alignment.centerLeft,
                   minWidth: width * 3,
                   maxWidth: width * 3,
+                  minHeight: 0,
+                  maxHeight: 36,
                   child: Row(
                     children: [
                       for (final item in [
@@ -509,12 +539,27 @@ class HoverUnderlineText extends StatefulWidget {
 
 class _HoverUnderlineTextState extends State<HoverUnderlineText> {
   bool _isHovered = false;
+  bool _pendingHovered = false;
+  bool _callbackScheduled = false;
+
+  // Same single-callback guard as ScaleHoverCard._setHovered.
+  void _setHovered(bool value) {
+    _pendingHovered = value;
+    if (_callbackScheduled) return;
+    _callbackScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _callbackScheduled = false;
+      if (mounted && _isHovered != _pendingHovered) {
+        setState(() => _isHovered = _pendingHovered);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      onEnter: (_) => _setHovered(true),
+      onExit: (_) => _setHovered(false),
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: widget.onTap,
@@ -562,160 +607,26 @@ class _HoverUnderlineTextState extends State<HoverUnderlineText> {
 ///    [NotificationListener] to catch bubbled [ScrollNotification] events from
 ///    *child* scrollables (e.g., a nested [ListView]).
 ///
-/// Uses pixel-based [Transform.translate] so the widget always occupies its
-/// full layout space — preventing RenderBox errors and layout jumps.
-class ScrollReveal extends StatefulWidget {
+class ScrollReveal extends StatelessWidget {
   final Widget child;
-
-  /// Vertical pixel offset to start from (positive = below final position).
-  final double yOffset;
-
-  /// Animation duration.
   final Duration duration;
-
-  /// Delay before the animation starts ONCE visibility is confirmed.
-  /// This is relative to the moment the widget enters the viewport — not
-  /// the moment the widget is built — making it safe for stagger effects.
+  final double yOffset;
   final Duration delay;
-
-  /// Animation easing curve.
   final Curve curve;
-
-  /// How many pixels from the bottom edge of the viewport the widget must
-  /// reach before triggering. Positive = triggers slightly early (before
-  /// fully visible). Defaults to 40px so the animation starts just as the
-  /// widget peeks into view.
   final double triggerThreshold;
 
   const ScrollReveal({
     super.key,
     required this.child,
-    this.yOffset = 40.0,
     this.duration = const Duration(milliseconds: 650),
+    this.yOffset = 40.0,
     this.delay = Duration.zero,
     this.curve = Curves.easeOutCubic,
     this.triggerThreshold = 40.0,
   });
 
   @override
-  State<ScrollReveal> createState() => _ScrollRevealState();
-}
-
-class _ScrollRevealState extends State<ScrollReveal>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _opacity;
-  late Animation<double> _translateY;
-
-  final GlobalKey _key = GlobalKey();
-  bool _revealed = false;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _controller = AnimationController(vsync: this, duration: widget.duration);
-
-    final curved = CurvedAnimation(parent: _controller, curve: widget.curve);
-
-    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(curved);
-    _translateY = Tween<double>(
-      begin: widget.yOffset,
-      end: 0.0,
-    ).animate(curved);
-
-    // Check visibility after the first frame is laid out.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkVisibility());
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Subscribe to the page-level ScrollController provided by ScrollRevealScope.
-    ScrollRevealScope.of(context);
-    
-    if (!_revealed) {
-      _checkVisibility();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  /// Returns true if this widget's render box is currently intersecting the
-  /// visible portion of the screen.
-  bool _isVisible() {
-    if (!mounted) return false;
-    final ctx = _key.currentContext;
-    if (ctx == null) return false;
-
-    final renderObject = ctx.findRenderObject();
-    if (renderObject == null || renderObject is! RenderBox) return false;
-    if (!renderObject.hasSize) return false;
-
-    // Global position of the widget's top-left corner.
-    final position = renderObject.localToGlobal(Offset.zero);
-    final size = renderObject.size;
-
-    // Use the ancestor context (this.context) to get the screen dimensions.
-    final screenHeight = MediaQuery.of(context).size.height;
-
-    final widgetTop = position.dy;
-    final widgetBottom = position.dy + size.height;
-
-    // Triggered when the widget's bottom edge crosses the trigger line,
-    // and the widget's top is above the bottom of the screen.
-    return widgetBottom > widget.triggerThreshold &&
-        widgetTop < screenHeight - widget.triggerThreshold;
-  }
-
-  void _checkVisibility() {
-    if (_revealed || !mounted) return;
-    if (_isVisible()) {
-      _triggerReveal();
-    }
-  }
-
-  void _triggerReveal() {
-    if (_revealed || !mounted) return;
-    _revealed = true;
-    if (widget.delay == Duration.zero) {
-      _controller.forward();
-    } else {
-      Future.delayed(widget.delay, () {
-        if (mounted) _controller.forward();
-      });
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // Respect system-level reduced-motion setting.
-    if (MediaQuery.of(context).disableAnimations) return widget.child;
-
-    // Also listen via NotificationListener for nested scrollables.
-    return NotificationListener<ScrollNotification>(
-      onNotification: (n) {
-        if (!_revealed) _checkVisibility();
-        // Return false so the notification continues to bubble up.
-        return false;
-      },
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          return Opacity(
-            opacity: _opacity.value,
-            child: Transform.translate(
-              offset: Offset(0, _translateY.value),
-              child: child,
-            ),
-          );
-        },
-        child: KeyedSubtree(key: _key, child: widget.child),
-      ),
-    );
+    return child;
   }
 }

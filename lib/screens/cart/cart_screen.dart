@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/animation/animation_utils.dart';
 import '../../providers/cart_provider.dart';
+import '../../services/api_service.dart';
 import '../../widgets/empty_state.dart';
 
 class CartScreen extends StatelessWidget {
@@ -300,7 +301,29 @@ class CartScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 ScaleHoverCard(
                   child: ElevatedButton.icon(
-                    onPressed: () => _showCheckoutDialog(context, cart),
+                    onPressed: () async {
+                      final loggedIn = await ApiService.isLoggedIn();
+                      if (!context.mounted) return;
+
+                      if (!loggedIn) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Please sign in to place an order.',
+                            ),
+                            backgroundColor: AppTheme.primary,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                        await Future.delayed(const Duration(milliseconds: 500));
+                        if (!context.mounted) return;
+                        Navigator.pushNamed(context, '/login');
+                        return;
+                      }
+
+                      if (!context.mounted) return;
+                      _showCheckoutDialog(context, cart);
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primary,
                       minimumSize: const Size(double.infinity, 52),
@@ -655,12 +678,14 @@ class CartScreen extends StatelessWidget {
                                 }
                               } catch (e) {
                                 setModalState(() => isLoading = false);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(e.toString()),
-                                    backgroundColor: AppTheme.error,
-                                  ),
-                                );
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(e.toString()),
+                                      backgroundColor: AppTheme.error,
+                                    ),
+                                  );
+                                }
                               }
                             },
                       style: ElevatedButton.styleFrom(

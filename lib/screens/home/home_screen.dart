@@ -68,9 +68,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       drawer: isDesktop ? null : const _MobileDrawer(),
-      body: NestedScrollView(
+      body: CustomScrollView(
         controller: _scrollController,
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+        slivers: [
           // ── SECTION 2 — PREMIUM NAVBAR ─────────────────────────────────────
           SliverAppBar(
             pinned: true,
@@ -194,40 +194,40 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(width: 8),
             ],
           ),
-        ],
 
-        body: Builder(
-          builder: (context) {
-            final innerController =
-                PrimaryScrollController.maybeOf(context) ?? _scrollController;
-            return ScrollRevealScope(
-              controller: innerController,
-              child: SingleChildScrollView(
-                controller: innerController,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // ── SECTION 3 — HERO SECTION (admin-configurable) ──────────────
-                    _HeroBanner(config: homepageConfig.hero),
-                    const SizedBox(height: 48),
+          // ── ALL PAGE CONTENT in a single SliverToBoxAdapter ────────────────
+          // Using SliverToBoxAdapter wrapping a Column ensures all children
+          // receive FINITE height constraints — eliminating the source of
+          // infinite-transform layout errors that triggered mouse_tracker.dart:199.
+          SliverToBoxAdapter(
+            child: ScrollRevealScope(
+              controller: _scrollController,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (homepageConfig.announcement.isActive &&
+                      homepageConfig.announcement.text.isNotEmpty)
+                    _AnnouncementBar(config: homepageConfig.announcement),
+                  // ── SECTION 3 — HERO SECTION (admin-configurable) ────────────
+                  _HeroBanner(config: homepageConfig.hero),
+                  const SizedBox(height: 48),
 
-                    // ── SECTIONS 4–14 — admin-configurable order & visibility ──────
-                    ..._buildDynamicSections(context, homepageConfig),
+                  // ── SECTIONS 4–14 — admin-configurable order & visibility ─────
+                  ..._buildDynamicSections(context, homepageConfig),
 
-                    // ── RECENTLY VIEWED & COMMUNITY STYLED SECTIONS ───────────────
-                    const ScrollReveal(child: _RecentlyViewedSection()),
-                    const SizedBox(height: 56),
-                    const ScrollReveal(child: _StyledCommunityGallery()),
-                    const SizedBox(height: 56),
+                  // ── RECENTLY VIEWED & COMMUNITY STYLED SECTIONS ───────────────
+                  const ScrollReveal(child: _RecentlyViewedSection()),
+                  const SizedBox(height: 56),
+                  const ScrollReveal(child: _StyledCommunityGallery()),
+                  const SizedBox(height: 56),
 
-                    // ── SECTION 15 — PREMIUM FOOTER ────────────────────────────────
-                    const ScrollReveal(yOffset: 20, child: _Footer()),
-                  ],
-                ),
+                  // ── SECTION 15 — PREMIUM FOOTER ──────────────────────────────
+                  const ScrollReveal(yOffset: 20, child: _Footer()),
+                ],
               ),
-            );
-          },
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -244,7 +244,14 @@ class _HomeScreenState extends State<HomeScreen> {
     for (int i = 0; i < sections.length; i++) {
       final section = _sectionWidget(context, sections[i].key);
       if (section == null) continue;
-      widgets.add(section);
+      widgets.add(
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1240),
+            child: section,
+          ),
+        ),
+      );
       widgets.add(SizedBox(height: _spacingAfter(sections[i].key)));
     }
     return widgets;
@@ -282,21 +289,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         );
       case 'featured':
-        return Column(
-          children: [
-            const ScrollReveal(
-              child: _SectionHeader(
-                title: 'The Royal Collection',
-                subtitle: 'Hand-picked regal attire designed for distinction',
-              ),
-            ),
-            const SizedBox(height: 24),
-            const ScrollReveal(
-              delay: Duration(milliseconds: 80),
-              child: _FeaturedCarousel(),
-            ),
-          ],
-        );
+        return const _CategoryGroupedProductsSection();
       case 'new_arrivals':
         return Column(
           children: [
@@ -377,20 +370,19 @@ class _AnnouncementBar extends StatelessWidget {
       "✦ ISLAMABAD · BAHRIA TOWN · PHASE 8",
     ];
 
-    final content = ColoredBox(
+    final content = Container(
+      height: 36,
       color: _background,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: MarqueeTicker(
-          items: marqueeItems,
-          textStyle: TextStyle(
-            color: _background == AppTheme.accent
-                ? AppTheme.textDark
-                : AppTheme.accent,
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2.0,
-          ),
+      alignment: Alignment.center,
+      child: MarqueeTicker(
+        items: marqueeItems,
+        textStyle: TextStyle(
+          color: _background == AppTheme.accent
+              ? AppTheme.textDark
+              : AppTheme.accent,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 2.0,
         ),
       ),
     );
@@ -970,6 +962,12 @@ class _CategoriesRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final allCats = context.watch<ProductProvider>().allCategories;
+    final otherCats = allCats.where((c) =>
+        c != 'all' &&
+        c != AppConstants.categoryPashtunDress &&
+        c != AppConstants.categoryPaintShirt).toList();
+
     return SizedBox(
       height: 120,
       child: ListView(
@@ -999,47 +997,231 @@ class _CategoriesRow extends StatelessWidget {
               arguments: AppConstants.categoryPaintShirt,
             ),
           ),
+          for (final cat in otherCats)
+            CategoryCard(
+              label: ProductProvider.formatCategoryTitle(cat),
+              icon: _getCategoryIcon(cat),
+              onTap: () => Navigator.pushNamed(
+                context,
+                '/products',
+                arguments: cat,
+              ),
+            ),
         ],
       ),
     );
   }
+
+  static String _getCategoryIcon(String category) {
+    switch (category.toLowerCase().trim()) {
+      case 'wallets':
+      case 'wallet':
+        return '👛';
+      case 'watches':
+      case 'watch':
+        return '⌚';
+      case 'perfumes':
+      case 'perfume':
+        return '✨';
+      case 'lighters':
+      case 'lighter':
+        return '🔥';
+      case 'caps':
+      case 'cap':
+        return '🧢';
+      case 'sunglasses':
+        return '🕶️';
+      case 'keychains':
+      case 'keychain':
+        return '🔑';
+      case 'accessories':
+        return '👑';
+      default:
+        return '✨';
+    }
+  }
 }
 
-// ─── SECTION 5 — Featured Collection Carousel ────────────────────────────────
-class _FeaturedCarousel extends StatelessWidget {
-  const _FeaturedCarousel();
+// ─── SECTION 5 — Category Grouped Products Collection ───────────────────────
+class _CategoryGroupedProductsSection extends StatelessWidget {
+  const _CategoryGroupedProductsSection();
 
   @override
   Widget build(BuildContext context) {
-    final products = context.watch<ProductProvider>().featured;
-    final isLoading = context.watch<ProductProvider>().isLoading;
+    final provider = context.watch<ProductProvider>();
+    final isHomeLoading = provider.isHomeLoading;
+    final homeError = provider.homeError;
+    final grouped = provider.homeProductsByCategory;
 
-    if (isLoading && products.isEmpty) {
-      return const SizedBox(height: 320, child: ProductCardSkeleton());
+    if (isHomeLoading && grouped.isEmpty) {
+      return const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ScrollReveal(
+            child: _SectionHeader(
+              title: 'The Royal Collection',
+              subtitle: 'Hand-picked regal attire designed for distinction',
+            ),
+          ),
+          SizedBox(height: 24),
+          SizedBox(height: 320, child: ProductCardSkeleton()),
+        ],
+      );
     }
 
+    if (homeError != null && grouped.isEmpty) {
+      final isBackendDown = homeError.contains('Cannot reach backend') ||
+          homeError.contains('Backend not responding') ||
+          homeError.contains('run_backend') ||
+          homeError.contains('Failed to fetch') ||
+          homeError.contains('ClientException');
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isBackendDown
+                    ? Icons.power_settings_new_rounded
+                    : Icons.cloud_off_rounded,
+                color: AppTheme.textGrey,
+                size: 36,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Unable to load curated collection',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppTheme.textDark,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                isBackendDown
+                    ? 'Backend server is not running.\nStart it with run_backend.bat, then tap Retry.'
+                    : homeError,
+                style:
+                    const TextStyle(fontSize: 12, color: AppTheme.textGrey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () =>
+                    context.read<ProductProvider>().loadHomeProducts(),
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (grouped.isEmpty) return const SizedBox.shrink();
+
+    final categoryEntries = grouped.entries.toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Main Collection Heading
+        ScrollReveal(
+          child: _SectionHeader(
+            title: 'The Royal Collection',
+            subtitle: 'Hand-picked royal attire designed for distinction',
+            onSeeAll: () => Navigator.pushNamed(context, '/products'),
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        // Distinct section for each category that has products
+        for (int i = 0; i < categoryEntries.length; i++) ...[
+          _CategoryProductSection(
+            categoryKey: categoryEntries[i].key,
+            title: ProductProvider.formatCategoryTitle(categoryEntries[i].key),
+            subtitle:
+                ProductProvider.getCategorySubtitle(categoryEntries[i].key),
+            products: categoryEntries[i].value,
+          ),
+          if (i < categoryEntries.length - 1) const SizedBox(height: 48),
+        ],
+      ],
+    );
+  }
+}
+
+class _CategoryProductSection extends StatelessWidget {
+  final String categoryKey;
+  final String title;
+  final String? subtitle;
+  final List<Product> products;
+
+  const _CategoryProductSection({
+    required this.categoryKey,
+    required this.title,
+    this.subtitle,
+    required this.products,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     if (products.isEmpty) return const SizedBox.shrink();
 
-    return CarouselSlider(
-      options: CarouselOptions(
-        height: 340,
-        enlargeCenterPage: true,
-        autoPlay: true,
-        autoPlayInterval: const Duration(seconds: 5),
-        viewportFraction: 0.75,
-      ),
-      items: products
-          .map(
-            (product) => ProductCard(
-              product: product,
-              onTap: () => Navigator.pushNamed(
-                context,
-                '/product',
-                arguments: product.id,
-              ),
+    final isDesktop = MediaQuery.of(context).size.width > 900;
+    final isSingleItem = products.length == 1;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ScrollReveal(
+          child: _SectionHeader(
+            title: title,
+            subtitle: subtitle,
+            onSeeAll: () => Navigator.pushNamed(
+              context,
+              '/products',
+              arguments: categoryKey,
             ),
-          )
-          .toList(),
+          ),
+        ),
+        const SizedBox(height: 20),
+        ScrollReveal(
+          delay: const Duration(milliseconds: 80),
+          child: CarouselSlider(
+            options: CarouselOptions(
+              height: 340,
+              enlargeCenterPage: !isSingleItem,
+              enableInfiniteScroll: products.length > 2,
+              autoPlay: products.length > 2,
+              autoPlayInterval: const Duration(seconds: 5),
+              viewportFraction: isSingleItem
+                  ? (isDesktop ? 0.35 : 0.7)
+                  : (isDesktop ? 0.32 : 0.75),
+            ),
+            items: products
+                .take(8)
+                .map(
+                  (product) => ProductCard(
+                    product: product,
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      '/product',
+                      arguments: product,
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1083,7 +1265,7 @@ class _NewArrivalsGrid extends StatelessWidget {
           onTap: () => Navigator.pushNamed(
             context,
             '/product',
-            arguments: newItems[index].id,
+            arguments: newItems[index],
           ),
         ),
       ),
@@ -1101,26 +1283,26 @@ class _BestsellersCarousel extends StatelessWidget {
     final isLoading = context.watch<ProductProvider>().isLoading;
 
     if (isLoading && products.isEmpty) {
-      return const SizedBox(height: 280, child: ProductCardSkeleton());
+      return const SizedBox(height: 350, child: ProductCardSkeleton());
     }
 
     if (products.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
-      height: 320,
+      height: 350,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: products.length,
         itemBuilder: (context, index) => Container(
-          width: 220,
+          width: 240,
           margin: const EdgeInsets.only(right: 14),
           child: ProductCard(
             product: products[index],
             onTap: () => Navigator.pushNamed(
               context,
               '/product',
-              arguments: products[index].id,
+              arguments: products[index],
             ),
           ),
         ),
@@ -1139,7 +1321,7 @@ class _EditorialFashionBanner extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      height: isMobile ? 320 : 400,
+      height: isMobile ? 380 : 420,
       color: const Color(0xFF1A0A08),
       child: Stack(
         children: [
@@ -1160,11 +1342,11 @@ class _EditorialFashionBanner extends StatelessWidget {
           ),
           Center(
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(isMobile ? 16 : 24),
               child: GlassCard(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 40,
-                  vertical: 36,
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 24 : 40,
+                  vertical: isMobile ? 24 : 36,
                 ),
                 borderRadius: 24,
                 baseColor: const Color(0xFF1A0A08),
@@ -1183,20 +1365,20 @@ class _EditorialFashionBanner extends StatelessWidget {
                         letterSpacing: 3.0,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: isMobile ? 10 : 16),
                     Text(
                       "Authentic Pashtun\nKhamak Embroidery",
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontFamily: 'Playfair',
-                        fontSize: isMobile ? 32 : 48,
+                        fontSize: isMobile ? 26 : 48,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                         height: 1.15,
                         letterSpacing: -0.5,
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    SizedBox(height: isMobile ? 18 : 32),
                     ScaleHoverCard(
                       scaleAmount: 1.05,
                       onTap: () => Navigator.pushNamed(context, '/products'),
@@ -1244,7 +1426,9 @@ class _SignatureProductShowcase extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final products = context.watch<ProductProvider>().featured;
+    final homeProducts = context.watch<ProductProvider>().homeProducts;
+    final featuredProducts = context.watch<ProductProvider>().featured;
+    final products = homeProducts.isNotEmpty ? homeProducts : featuredProducts;
     if (products.isEmpty) return const SizedBox.shrink();
     final signatureItem = products.first;
     final isMobile = MediaQuery.of(context).size.width < 768;
@@ -2116,7 +2300,7 @@ class _RecentlyViewedSectionState extends State<_RecentlyViewedSection> {
                     onTap: () => Navigator.pushNamed(
                       context,
                       '/product',
-                      arguments: product.id,
+                      arguments: product,
                     ),
                   ),
                 );
@@ -2302,8 +2486,11 @@ class _StyledCommunityGalleryState extends State<_StyledCommunityGallery> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 16,
+            runSpacing: 12,
             children: [
               const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2338,13 +2525,6 @@ class _StyledCommunityGalleryState extends State<_StyledCommunityGallery> {
                     horizontal: 16,
                     vertical: 10,
                   ),
-                  // The app's global ElevatedButtonTheme sets minimumSize to
-                  // Size(double.infinity, 52) for full-width CTA buttons
-                  // (Sign In, Add to Cart, etc). This button instead sits
-                  // inline in a Row next to a heading, so it must override
-                  // that to size itself to its content — otherwise it
-                  // demands infinite width, which a Row cannot satisfy and
-                  // throws during layout.
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),

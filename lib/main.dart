@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/screens/product/product_detail.dart';
 import 'package:frontend/screens/product/product_list.dart';
 import 'package:provider/provider.dart';
+import 'models/product_model.dart';
 import 'core/theme/app_theme.dart';
 import 'core/animation/ambient_background.dart';
 import 'providers/cart_provider.dart';
@@ -67,12 +68,22 @@ class NoofsAttireApp extends StatelessWidget {
           '/lookbook': (context) => const LookbookScreen(),
         },
 
-        // For routes that need parameters (e.g. product ID):
+        // For routes that need parameters (e.g. product ID or Product object):
         onGenerateRoute: (settings) {
           if (settings.name == '/product') {
-            final productId = settings.arguments as String;
+            String productId = '';
+            Product? initialProduct;
+            if (settings.arguments is Product) {
+              initialProduct = settings.arguments as Product;
+              productId = initialProduct.id;
+            } else if (settings.arguments is String) {
+              productId = settings.arguments as String;
+            }
             return MaterialPageRoute(
-              builder: (context) => ProductDetailScreen(productId: productId),
+              builder: (context) => ProductDetailScreen(
+                productId: productId,
+                initialProduct: initialProduct,
+              ),
             );
           }
           return null;

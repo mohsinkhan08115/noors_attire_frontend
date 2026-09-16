@@ -9,14 +9,22 @@ class ProductService {
     String? category,
     bool? featured,
     bool? bestseller,
+    bool? showOnHome,
     int limit = 50,
   }) async {
     final params = <String, String>{'limit': limit.toString()};
     if (category != null) params['category'] = category;
     if (featured != null) params['featured'] = featured.toString();
     if (bestseller != null) params['bestseller'] = bestseller.toString();
+    if (showOnHome != null) params['show_on_home'] = showOnHome.toString();
 
     final data = await ApiService.get('/products/', params: params);
+    return (data as List).map((p) => Product.fromJson(p)).toList();
+  }
+
+  /// Fetch products configured by admin to appear on the Home Screen.
+  static Future<List<Product>> getHomeProducts() async {
+    final data = await ApiService.get('/products/home');
     return (data as List).map((p) => Product.fromJson(p)).toList();
   }
 

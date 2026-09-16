@@ -64,8 +64,8 @@ class _LuxuryAnimatedBackgroundState extends State<LuxuryAnimatedBackground>
       fit: StackFit.expand,
       children: [
         // ── Base Warm Ivory Surface Layer ─────────────────────────────────
-        const Positioned.fill(
-          child: ColoredBox(color: AppTheme.background),
+        Positioned.fill(
+          child: Container(color: AppTheme.background),
         ),
 
         // ── Ambient Animated Background Canvas ────────────────────────────

@@ -7,10 +7,10 @@ class AppConstants {
   // ── API ──────────────────────────────────────────────────────────────────
   // Change this to your Vercel backend URL after deployment
   static const String baseUrl = 'https://noors-attire.vercel.app';
-
+  // static const String baseUrl = 'http://127.0.0.1:8000';
+  // static const String baseUrl = 'https://noors-attire.vercel.app';
   // For local development:
   // static const String baseUrl = 'http://127.0.0.1:8000';
-  
 
   // ── Storage Keys ─────────────────────────────────────────────────────────
   // Keys used with flutter_secure_storage to save the JWT token locally

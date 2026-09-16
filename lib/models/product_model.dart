@@ -18,6 +18,8 @@ class Product {
   final List<String> imageUrls;
   final bool isFeatured;
   final bool isBestseller;
+  final bool showOnHome;
+  final int homeOrder;
   final List<String> tags;
   final String? createdAt;
 
@@ -35,6 +37,8 @@ class Product {
     required this.imageUrls,
     required this.isFeatured,
     required this.isBestseller,
+    this.showOnHome = false,
+    this.homeOrder = 0,
     required this.tags,
     this.createdAt,
   });
@@ -58,6 +62,8 @@ class Product {
       imageUrls: List<String>.from(json['image_urls'] ?? []),
       isFeatured: json['is_featured'] ?? false,
       isBestseller: json['is_bestseller'] ?? false,
+      showOnHome: json['show_on_home'] ?? false,
+      homeOrder: json['home_order'] ?? 0,
       tags: List<String>.from(json['tags'] ?? []),
       createdAt: json['created_at'],
     );
@@ -89,13 +95,55 @@ class Product {
 
   /// Category display name
   String get categoryDisplayName {
-    switch (category) {
+    switch (category.toLowerCase().trim()) {
       case 'pashtun_dress':
         return 'Pashtun Dress';
       case 'paint_shirt':
         return 'Paint Shirt';
+      case 'clothing':
+        return 'Clothing';
+      case 'accessories':
+        return 'Accessories';
+      case 'wallets':
+      case 'wallet':
+        return 'Wallet';
+      case 'watches':
+      case 'watch':
+        return 'Watch';
+      case 'perfumes':
+      case 'perfume':
+        return 'Perfume';
+      case 'lighters':
+      case 'lighter':
+        return 'Lighter';
+      case 'caps':
+      case 'cap':
+        return 'Cap';
+      case 'sunglasses':
+        return 'Sunglasses';
+      case 'bags':
+      case 'bag':
+        return 'Bag';
+      case 'belts':
+      case 'belt':
+        return 'Belt';
+      case 'shoes':
+      case 'shoe':
+        return 'Shoes';
+      case 'keychains':
+      case 'keychain':
+        return 'Keychain';
+      case 'trending':
+        return 'Trending';
       default:
-        return category;
+        if (category.isEmpty) return 'Product';
+        return category
+            .replaceAll('_', ' ')
+            .replaceAll('-', ' ')
+            .split(' ')
+            .where((s) => s.isNotEmpty)
+            .map((word) => word[0].toUpperCase() + word.substring(1))
+            .join(' ');
     }
   }
 }

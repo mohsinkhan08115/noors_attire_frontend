@@ -25,6 +25,23 @@ class ProductCard extends StatefulWidget {
 
 class _ProductCardState extends State<ProductCard> {
   bool _isHovered = false;
+  bool _pendingHovered = false;
+  bool _callbackScheduled = false;
+
+  // Same single-callback hover guard as ScaleHoverCard._setHovered.
+  // Guards against the nested-MouseRegion mouse_tracker.dart:199 assertion
+  // AND prevents callback accumulation on rapid mouse moves.
+  void _setHovered(bool value) {
+    _pendingHovered = value;
+    if (_callbackScheduled) return;
+    _callbackScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _callbackScheduled = false;
+      if (mounted && _isHovered != _pendingHovered) {
+        setState(() => _isHovered = _pendingHovered);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,8 +55,8 @@ class _ProductCardState extends State<ProductCard> {
       onTap: widget.onTap,
       scaleAmount: 1.02,
       child: MouseRegion(
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
+        onEnter: (_) => _setHovered(true),
+        onExit: (_) => _setHovered(false),
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
